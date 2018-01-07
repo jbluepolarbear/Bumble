@@ -530,6 +530,9 @@ const BumbleUtility = {
     },
     clamp: (x, a, b) => {
         return Math.min(Math.max(x, a), b)
+    },
+    random: (max) => {
+        return Math.floor(Math.random() * Math.floor(max));
     }
 }
 
@@ -593,5 +596,9 @@ class BumbleVector {
 
     copy() {
         return new BumbleVector(this.__x, this.__y);
+    }
+
+    equals(vector) {
+        return this.__x === vector.x && this.__y === vector.y;
     }
 }

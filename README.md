@@ -1,9 +1,24 @@
 # Bumble
-A small JavaScript game framwork
+A small JavaScript game framwork with a focus on coroutines.
 <p align="center">
   <img src="https://raw.githubusercontent.com/jbluepolarbear/Bumble/master/bumble.png"/>
 </p>
 
+## Road Map
+* Preloader (Image, Audio, JSON)
+* Audio
+* Collision Utilities
+* Sprite:
+    * Hierarchy
+    * Input Blocking
+    * Clipping
+    * Render order/transportation
+    * Button
+    * Text Box
+    * Scroll list
+
+
+## Sample Usage
 ```javascript
 // create bumble instance
 const bumble = new Bumble('sample', 720, 480, 'black', 60);
