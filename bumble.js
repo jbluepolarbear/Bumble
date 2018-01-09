@@ -2,6 +2,7 @@ class Bumble {
     constructor(gameName, width, height, clearColor = 'white', framerate = 60) {
         this.__imageCache = {};
         this.__routines = new BumbleCoroutines();
+        this.__preloader = new BumblePreloader(this);
         this.__width = width;
         this.__height = height;
         this.__clearColor = clearColor;
@@ -16,7 +17,11 @@ class Bumble {
         this.__canvas.width = this.__width;
         this.__canvas.height = this.__height;
         this.__canvas.oncontextmenu = event => { return false; };
-        this.__contex = this.__canvas.getContext("2d");
+        this.__context = this.__canvas.getContext("2d");
+
+        this.__loaderBackgroundColor = 'white';
+        this.__loaderProgressBackgroundColor = 'grey';
+        this.__loaderProgressColor = 'blue';
 
         this.__mouse = new BumbleMouse(this);
 
@@ -30,8 +35,13 @@ class Bumble {
     }
 
     __update() {
-        this.__routines.update();
-        this.__gameState.update();
+        if (this.__preloader.loading()) {
+            this.__preloader.update();
+            this.__showProgress();
+        } else {
+            this.__routines.update();
+            this.__gameState.update();
+        }
     }
 
     clearScreen() {
@@ -76,7 +86,7 @@ class Bumble {
     }
 
     get context() {
-        return this.__contex;
+        return this.__context;
     }
 
     set clearColor(color) {
@@ -87,6 +97,10 @@ class Bumble {
         return this.__clearColor;
     }
 
+    get preloader() {
+        return this.__preloader;
+    }
+
     runCoroutine(coroutine) {
         this.__routines.runCoroutine(coroutine);
     }
@@ -95,17 +109,161 @@ class Bumble {
         this.__routines.clear();
     }
 
-    getImage(url) {
-        return new Promise((resolve, reject) => {
-            if (url in this.__imageCache) {
-                resolve(new BumbleImage(this, this.__imageCache[url]));
-            } else {
-                BumbleUtility.loadImage(url).then((image) => {
-                    this.__imageCache[url] = image;
-                    resolve(new BumbleImage(this, image));
-                });
+    getImage(name) {
+        return new BumbleImage(this, this.__preloader.getImage(name));
+    }
+
+    get loaderBackgroundColor() {
+        return this.__loaderBackgroundColor;
+    }
+    set loaderBackgroundColor(value) {
+        this.__loaderBackgroundColor = value;
+    }
+
+    get loaderProgressColor() {
+        return this.__loaderProgressColor;
+    }
+    set loaderProgressColor(value) {
+        this.__loaderProgressColor = value;
+    }
+
+    get loaderProgressBackgroundColor() {
+        return this.__loaderProgressBackgroundColor;
+    }
+    set loaderProgressBackgroundColor(value) {
+        this.__loaderProgressBackgroundColor = value;
+    }
+
+    __showProgress() {
+        const context = this.__context;
+        const width = this.__width;
+        const height = this.__height;
+        const progressBarWidth = width * 0.65;
+        const progressBarHeight = height * 0.1;
+        const progressBarBufferWidth = progressBarWidth + progressBarHeight * 0.2;
+        const progressBarBufferHeight = progressBarHeight + progressBarHeight * 0.2;
+
+        context.fillStyle = this.__loaderBackgroundColor;
+        context.fillRect(0, 0, width, height);
+        
+        context.fillStyle = this.__loaderProgressBackgroundColor;
+        const startProgressBarBufferX = (width - progressBarBufferWidth) / 2.0;
+        const startProgressBarBufferY = (height - progressBarBufferHeight) / 2.0;
+        context.fillRect(startProgressBarBufferX, startProgressBarBufferY, progressBarBufferWidth, progressBarBufferHeight);
+
+        context.fillStyle = this.__loaderProgressColor;
+        const startProgressBarX = (width - progressBarWidth) / 2.0;
+        const startProgressBarY = (height - progressBarHeight) / 2.0;
+        const progression = this.__preloader.progression();
+        if (progression > 0.0) {
+            context.fillRect(startProgressBarX, startProgressBarY, progressBarWidth * progression, progressBarHeight);
+        }
+    }
+}
+
+class BumbleResource {
+    constructor(name, url, type) {
+        this.__name = name;
+        this.__url = url;
+        this.__type = type;
+    }
+
+    get name() {
+        return this.__name;
+    }
+
+    get url() {
+        return this.__url;
+    }
+
+    get type() {
+        return this.__type;
+    }
+}
+
+class BumblePreloader {
+    constructor(bumble) {
+        this.__bumble = bumble;
+        this.__loading = false;
+        this.__imageCache = {};
+        this.__audioCache = {};
+        this.__loadingResources = [];
+        this.__routines = new BumbleCoroutines();
+        this.__resourcesStarted = 0;
+        this.__resourcesLoaded = 0;
+    }
+
+    loading() {
+        return this.__loading;
+    }
+
+    progression() {
+        const percentage = this.__resourcesLoaded / this.__resourcesStarted;
+        if (percentage >= 1.0) {
+            this.__loading = false;
+        }
+        return percentage;
+    }
+
+    update() {
+        this.__routines.update();
+    }
+
+    getImage(name) {
+        if (name in this.__imageCache) {
+            return this.__imageCache[name];
+        }
+        return null;
+    }
+
+    getAudio(name) {
+        if (name in this.__audioCache) {
+            return this.__audioCache[name];
+        }
+        return null;
+    }
+
+    loadImage(name, url) {
+        this.__loading = true;
+        this.__resourcesStarted += 1;
+        this.__routines.runCoroutine(function *() {
+            if (!(name in this.__imageCache)) {
+                const image = yield BumbleUtility.loadImage(url);
+                this.__imageCache[name] = image;
             }
-        });
+            this.__resourcesLoaded += 1;
+        }.bind(this));
+    }
+
+    loadAudio(name, url) {
+    }
+
+    load(resource) {
+        if (resource.type === 'image') {
+            this.loadImage(resource.name, resource.url);
+        } else /*audio*/ {
+            this.loadAudio(resource.name, resource.url);
+        }
+    }
+
+    // [new BumbleResource('name', '/something.com/resourcename.ext', '(image) or (audio)')]
+    loadAll(resourecs) {
+        for (let resource of resourecs) {
+            this.load(resource);
+        }
+    }
+
+    clearImages() {
+        this.__imageCache = {};
+    }
+
+    clearAudios() {
+        this.__audioCache = {};
+    }
+
+    clearAll() {
+        this.clearImages();
+        this.clearAudios();
     }
 }
 

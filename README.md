@@ -5,7 +5,7 @@ A small JavaScript game framwork with a focus on coroutines.
 </p>
 
 ## Road Map
-* Preloader (Image, Audio, JSON)
+* Preloader (Audio, JSON)
 * Audio
 * Collision Utilities
 * Sprite:
@@ -30,11 +30,15 @@ if (timeRun === null) {
 }
 gamestate.setState('times run', timeRun + 1);
 
+bumble.preloader.loadAll([
+    new BumbleResource('bumble', 'img/bumble.png', 'image'),
+]);
+
 // all loading and game logic is run in coroutines
 // coroutines support yielding naked yields, genertors, promises, and arrays of promises
 bumble.runCoroutine(function *() {
     // load an image by url
-    const image = yield bumble.getImage('img/bumble.png');
+    const image = bumble.getImage('bumble');
 
     // create a shape
     const shape = new BumbleShape(bumble, [
