@@ -113,6 +113,14 @@ class Bumble {
         return new BumbleImage(this, this.__preloader.getImage(name));
     }
 
+    getAudio(name) {
+        return new BumbleAudio(this.__preloader.getAudio(name));
+    }
+
+    getShape(points, color, fill = true) {
+        return new BumbleShape(this, points, color, fill = true);
+    }
+
     get loaderBackgroundColor() {
         return this.__loaderBackgroundColor;
     }
@@ -236,6 +244,15 @@ class BumblePreloader {
     }
 
     loadAudio(name, url) {
+        this.__loading = true;
+        this.__resourcesStarted += 1;
+        this.__routines.runCoroutine(function *() {
+            if (!(name in this.__audioCache)) {
+                const audio = yield BumbleUtility.loadAudio(url);
+                this.__audioCache[name] = audio;
+            }
+            this.__resourcesLoaded += 1;
+        }.bind(this));
     }
 
     load(resource) {
@@ -383,6 +400,27 @@ class BumbleCoroutines {
             }
         } while (!yielded.done);
         return yielded.value;
+    }
+}
+
+class BumbleAudio {
+    constructor(audio) {
+        this.__audio = audio;
+    }
+
+    play() {
+        this.__audio.play();
+    }
+
+    get loop() {
+        return this.__audio.loop;
+    }
+    set loop(value) {
+        this.__audio.loop = value;
+    }
+
+    pause() {
+        this.__audio.pause();
     }
 }
 
@@ -666,11 +704,20 @@ class BumbleMouse {
 const BumbleUtility = {
     loadImage: function (url) {
         return new Promise((resolve, reject) => {
-            let image = new Image();
+            const image = new Image();
             image.addEventListener('load', () => {
                 resolve(image);
             }, false);
             image.src = url;
+        });
+    },
+    loadAudio: function (url) {
+        return new Promise((resolve, reject) => {
+            const audio = new Audio();
+            audio.addEventListener('canplaythrough', () => {
+                resolve(audio);
+            });
+            audio.src = url;
         });
     },
     wait: function (duration) {

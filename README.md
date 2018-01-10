@@ -32,6 +32,7 @@ gamestate.setState('times run', timeRun + 1);
 
 bumble.preloader.loadAll([
     new BumbleResource('bumble', 'img/bumble.png', 'image'),
+    new BumbleResource('laser', 'audio/laser.mp3', 'audio')
 ]);
 
 // all loading and game logic is run in coroutines
@@ -41,7 +42,7 @@ bumble.runCoroutine(function *() {
     const image = bumble.getImage('bumble');
 
     // create a shape
-    const shape = new BumbleShape(bumble, [
+    const shape = bumble.getShape([
         new BumbleVector(64, 0),
         new BumbleVector(128, 128),
         new BumbleVector(0, 128),
@@ -50,11 +51,14 @@ bumble.runCoroutine(function *() {
     shape.position = new BumbleVector(shape.width, shape.height);
     shape.setAnchorToCenterPoint();
 
+    const audio = bumble.getAudio('laser');
+
     // coroutine to handle snaping the shape to the mouse on right/main click
     bumble.runCoroutine(function *() {
         while (true) {
             if (bumble.mouse.mouseState.buttonState[0]) {
                 shape.position = bumble.mouse.mouseState.position.copy();
+                audio.play();
             }
             yield;
         }
