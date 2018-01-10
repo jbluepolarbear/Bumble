@@ -32,7 +32,8 @@ gamestate.setState('times run', timeRun + 1);
 
 bumble.preloader.loadAll([
     new BumbleResource('bumble', 'img/bumble.png', 'image'),
-    new BumbleResource('laser', 'audio/laser.mp3', 'audio')
+    new BumbleResource('laser', 'audio/laser.mp3', 'audio'),
+    new BumbleResource('data', 'data/data.json', 'data')
 ]);
 
 // all loading and game logic is run in coroutines
@@ -58,13 +59,24 @@ bumble.runCoroutine(function *() {
         while (true) {
             if (bumble.mouse.mouseState.buttonState[0]) {
                 shape.position = bumble.mouse.mouseState.position.copy();
-                audio.play();
             }
             yield;
         }
     });
-    let angle = 0;
+    
+    bumble.runCoroutine(function *() {
+        while (true) {
+            if (bumble.keys.isDown(BumbleKeyCodes.SPACE)) {
+                audio.play();
+                yield BumbleUtility.wait(0.5);
+            }
+            yield;
+        }
+    });
 
+    const data = bumble.getData('data');
+
+    let angle = 0;
     // check keyboard input and left/alt mouse click
     while (!bumble.keys.isDown(BumbleKeyCodes.R) && !bumble.mouse.mouseState.buttonState[2]) {
         // clear canvas screen
