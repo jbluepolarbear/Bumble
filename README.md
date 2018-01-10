@@ -5,8 +5,6 @@ A small JavaScript game framwork with a focus on coroutines.
 </p>
 
 ## Road Map
-* Preloader (Audio, JSON)
-* Audio
 * Collision Utilities
 * Sprite:
     * Hierarchy
