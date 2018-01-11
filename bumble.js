@@ -732,8 +732,8 @@ class BumbleMouse {
     }
 }
 
-const BumbleUtility = {
-    loadImage: function (url) {
+class BumbleUtility {
+    static loadImage(url) {
         return new Promise((resolve, reject) => {
             const image = new Image();
             image.addEventListener('load', () => {
@@ -741,8 +741,9 @@ const BumbleUtility = {
             }, false);
             image.src = url;
         });
-    },
-    loadAudio: function (url) {
+    }
+
+    static loadAudio(url) {
         return new Promise((resolve, reject) => {
             const audio = new Audio();
             audio.addEventListener('canplaythrough', () => {
@@ -750,8 +751,9 @@ const BumbleUtility = {
             });
             audio.src = url;
         });
-    },
-    loadData: function (url) {
+    }
+
+    static loadData(url) {
         return new Promise((resolve, reject) => {
             const request = new XMLHttpRequest();
             request.overrideMimeType("application/json");
@@ -763,24 +765,28 @@ const BumbleUtility = {
             };
             request.send(null); 
         });
-    },
-    wait: function (duration) {
+    }
+
+    static wait(duration) {
         return new Promise((resolve, reject) => {
             setTimeout(() => {
                 resolve();
             }, duration * 1000);
         });
-    },
-    line: (context, x, y, x2, y2) => {
+    }
+
+    static line(context, x, y, x2, y2) {
         context.beginPath();
         context.moveTo(x,y);
         context.lineTo(x2,y2);
         context.stroke();
-    },
-    clamp: (x, a, b) => {
+    }
+
+    static clamp(x, a, b) {
         return Math.min(Math.max(x, a), b)
-    },
-    random: (max) => {
+    }
+
+    static random(max) {
         return Math.floor(Math.random() * Math.floor(max));
     }
 }
@@ -849,5 +855,82 @@ class BumbleVector {
 
     equals(vector) {
         return this.__x === vector.x && this.__y === vector.y;
+    }
+}
+
+class BumbleCollision {
+    static rectToRect(position1, width1, height1, position2, width2, height2) {
+        const halfWidth1 = width1 / 2.0;
+        const halfHeight1 = height1 / 2.0;
+        const halfWidth2 = width2 / 2.0;
+        const halfHeight2 = height2 / 2.0;
+
+        let x1 = position1.x;
+        let x2 = position2.x;
+        if (x1 > x2) {
+            const t = x1;
+            x1 = x2;
+            x2 = t;
+        }
+
+        let y1 = position1.y;
+        let y2 = position2.y;
+        if (y1 > y2) {
+            const t = y1;
+            y1 = y2;
+            y2 = t;
+        }
+
+        if (x1 + halfWidth1 + halfWidth2 >= x2 &&
+            y1 + halfHeight1 + halfHeight2 >= y2) {
+            return true;
+        }
+
+        return false;
+    }
+
+    static pointToRect(position1, position2, width1, height1) {
+        const halfWidth1 = width1 / 2.0;
+        const halfHeight1 = height1 / 2.0;
+
+        let x1 = position1.x;
+        let x2 = position2.x;
+        if (x1 > x2) {
+            const t = x1;
+            x1 = x2;
+            x2 = t;
+        }
+
+        let y1 = position1.y;
+        let y2 = position2.y;
+        if (y1 > y2) {
+            const t = y1;
+            y1 = y2;
+            y2 = t;
+        }
+
+        if (x1 + halfWidth1 >= x2 &&
+            y1 + halfHeight1 >= y2) {
+            return true;
+        }
+
+        return false;
+    }
+
+    static circleToCircle(position1, radius1, position2, radius2) {
+        const Radius0 = radius0 * radius0
+        const Radius1 = radius1 * radius1
+        if (position1.subtract(position2).lengthSquared() <= (Radius0 + Radius1)) {
+            return true;
+        }
+        return false;
+    }
+
+    static pointToCircle(position1, position2, radius2) {
+        const Radius0 = radius0 * radius0
+        if (position1.subtract(position2).lengthSquared() <= (Radius0)) {
+            return true;
+        }
+        return false;
     }
 }
