@@ -6,14 +6,6 @@ A small JavaScript game framwork with a focus on coroutines.
 
 ## Road Map
 * Collision Utilities
-* Sprite:
-    * Hierarchy
-    * Input Blocking
-    * Clipping
-    * Render order/transportation
-    * Button
-    * Text Box
-    * Scroll list
 
 
 ## Sample Usage
