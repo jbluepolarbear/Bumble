@@ -924,6 +924,162 @@ class BumbleVector {
     equals(vector) {
         return this.__x === vector.x && this.__y === vector.y;
     }
+
+    set(x, y) {
+        this.__x = x;
+        this.__y = y;
+    }
+
+    multiplyMatrix(matrix) {
+        return new BumbleVector(
+            this.__x * matrix.m11 + this.__y * matrix.m12,
+            this.__x * matrix.m21 + this.__y * matrix.m22
+        );
+    }
+}
+
+class BumbleMatrix {
+    constructor(m11 = 1, m12 = 0, m13 = 0,
+                m21 = 0, m22 = 1, m23 = 0,
+                m31 = 0, m32 = 0, m33 = 1) {
+        this.__m11 = m11;
+        this.__m12 = m12;
+        this.__m13 = m13;
+        this.__m21 = m21;
+        this.__m22 = m22;
+        this.__m23 = m23;
+        this.__m31 = m31;
+        this.__m32 = m32;
+        this.__m33 = m33;
+    }
+
+    //row 1
+    get m11() { return this.__m11; }
+    set m11(value) {
+        this.__m11 = value;
+    }
+    get m12() { return this.__m12; }
+    set m12(value) {
+        this.__m12 = value;
+    }
+    get m13() { return this.__m13; }
+    set m13(value) {
+        this.__m13 = value;
+    }
+
+    //row 2
+    get m21() { return this.__m21; }
+    set m21(value) {
+        this.__m21 = value;
+    }
+    get m22() { return this.__m22; }
+    set m22(value) {
+        this.__m22 = value;
+    }
+    get m23() { return this.__m23; }
+    set m23(value) {
+        this.__m23 = value;
+    }
+
+    //row 3
+    get m31() { return this.__m31; }
+    set m31(value) {
+        this.__m31 = value;
+    }
+    get m32() { return this.__m32; }
+    set m32(value) {
+        this.__m32 = value;
+    }
+    get m33() { return this.__m33; }
+    set m33(value) {
+        this.__m33 = value;
+    }
+
+    multiply(matrix) {
+        return new BumbleMatrix(
+            this.__m11  * matrix.m11 + this.__m12  * matrix.m21 + this.__m13  * matrix.m31,
+            this.__m11  * matrix.m12 + this.__m12  * matrix.m22 + this.__m13  * matrix.m32,
+            this.__m11  * matrix.m13 + this.__m12  * matrix.m23 + this.__m13  * matrix.m33,
+            this.__m21  * matrix.m11 + this.__m22  * matrix.m21 + this.__m23  * matrix.m31,
+            this.__m21  * matrix.m12 + this.__m22  * matrix.m22 + this.__m23  * matrix.m32,
+            this.__m21  * matrix.m13 + this.__m22  * matrix.m23 + this.__m23  * matrix.m33,
+            this.__m31  * matrix.m11 + this.__m32  * matrix.m21 + this.__m33  * matrix.m31,
+            this.__m31  * matrix.m12 + this.__m32  * matrix.m22 + this.__m33  * matrix.m32,
+            this.__m31  * matrix.m13 + this.__m32  * matrix.m23 + this.__m33  * matrix.m33
+        );
+    }
+
+    add(matrix) {
+        return new BumbleMatrix(
+            this.__m11 + matrix.m11, this.__m12 + matrix.m12, this.__m13 + matrix.m13,
+            this.__m21 + matrix.m21, this.__m22 + matrix.m22, this.__m23 + matrix.m23,
+            this.__m31 + matrix.m31, this.__m32 + matrix.m32, this.__m33 + matrix.m33
+        );
+    }
+
+    set(matrix) {
+        this.__m11 = matrix.m11;
+        this.__m12 = matrix.m12;
+        this.__m13 = matrix.m13;
+        this.__m21 = matrix.m21;
+        this.__m22 = matrix.m22;
+        this.__m23 = matrix.m23;
+        this.__m31 = matrix.m31;
+        this.__m32 = matrix.m32;
+        this.__m33 = matrix.m33;
+    }
+
+    setIdentity(matrix) {
+        this.__m11 = 1;
+        this.__m12 = 0;
+        this.__m13 = 0;
+        this.__m21 = 0;
+        this.__m22 = 1;
+        this.__m23 = 0;
+        this.__m31 = 0;
+        this.__m32 = 0;
+        this.__m33 = 1;
+    }
+
+    transpose() {
+        return new BumbleMatrix(
+            this.__11, this.__21, this.__31,
+            this.__12, this.__22, this.__32,
+            this.__13, this.__23, this.__33
+        );
+    }
+
+    static identity() {
+        return new BumbleMatrix(
+            1, 0, 0,
+            0, 1, 0,
+            0, 0, 1
+        );
+    }
+
+    static translate(x, y) {
+        return new BumbleMatrix(
+            1, 0, x,
+            0, 1, y,
+            0, 0, 1
+        );
+    }
+
+    static scale(x, y) {
+        return new BumbleMatrix(
+            x, 0, 0,
+            0, y, 0,
+            0, 0, 1
+        );
+    }
+
+    static rotate(radians) {
+        return new BumbleMatrix(
+            Math.cos(radians), -Math.sin(radians), 0.0,
+            Math.sin(radians), Math.cos(radians), 0.0,
+            0, 0, 1
+        );
+    }
 }
 
 class BumbleCollision {
@@ -1012,36 +1168,43 @@ class BumbleTransformation {
         this.__anchor = new BumbleVector(0.5, 0.5);
         this.__width = width;
         this.__height = height;
+        this.__transformMatrix = null;
     }
 
     get rotation() { return this.__rotation; }
     set rotation(value) {
         this.__rotation = value;
+        this.__transformMatrix = null;
     }
 
     get position() { return this.__position; }
     set position(value) {
         this.__position = value;
+        this.__transformMatrix = null;
     }
 
     get scale() { return this.__scale; }
     set scale(value) {
         this.__scale = value;
+        this.__transformMatrix = null;
     }
 
     get anchor() { return this.__anchor; }
     set anchor(value) {
         this.__anchor = value;
+        this.__transformMatrix = null;
     }
 
     get width() { return this.__width; }
     set width(value) {
         this.__width = value;
+        this.__transformMatrix = null;
     }
 
     get height() { return this.__height; }
     set height(value) {
         this.__height = value;
+        this.__transformMatrix = null;
     }
 
     push() {
@@ -1053,9 +1216,23 @@ class BumbleTransformation {
     }
 
     apply() {
-        this.__bumble.context.translate(this.__position.x, this.__position.y);
-        this.__bumble.context.rotate(this.__rotation);
-        this.__bumble.context.scale(this.__scale.x, this.__scale.y);
-        this.__bumble.context.translate(-this.__width * this.__anchor.x, -this.__height * this.__anchor.y);
+        const trans = this.getTransform();
+        this.__bumble.context.transform(
+            trans.m11, trans.m21,
+            trans.m12, trans.m22,
+            trans.m13, trans.m23
+        );
+    }
+
+    getTransform() {
+        if (this.__transformMatrix === null) {
+            const rot = BumbleMatrix.rotate(this.__rotation);
+            const scl = BumbleMatrix.scale(this.__scale.x, this.__scale.y);
+            const pos = BumbleMatrix.translate(this.__position.x, this.__position.y);
+            const ctr = BumbleMatrix.translate(-this.__width * this.__anchor.x, -this.__height * this.__anchor.y);
+            
+            this.__transformMatrix = pos.multiply(rot).multiply(scl).multiply(ctr);
+        }
+        return this.__transformMatrix;
     }
 }
