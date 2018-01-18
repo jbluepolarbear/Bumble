@@ -70,6 +70,8 @@ class Bumble {
     }
 
     clearScreen() {
+        this.context.setTransform(1, 0, 0, 1, 0, 0);
+        this.context.globalAlpha = 1.0;
         this.context.fillStyle = this.__clearColor;
         this.context.fillRect(0, 0, this.__width, this.__height);
     }
@@ -180,6 +182,8 @@ class Bumble {
         const progressBarBufferWidth = progressBarWidth + progressBarHeight * 0.2;
         const progressBarBufferHeight = progressBarHeight + progressBarHeight * 0.2;
 
+        this.context.setTransform(1, 0, 0, 1, 0, 0);
+        this.context.globalAlpha = 1.0;
         context.fillStyle = this.__loaderBackgroundColor;
         context.fillRect(0, 0, width, height);
         
@@ -195,6 +199,23 @@ class Bumble {
         if (progression > 0.0) {
             context.fillRect(startProgressBarX, startProgressBarY, progressBarWidth * progression, progressBarHeight);
         }
+    }
+
+    drawRect(rect, color) {
+        this.context.setTransform(1, 0, 0, 1, 0, 0);
+        this.context.globalAlpha = 1.0;
+        this.context.beginPath();
+        this.context.moveTo(rect.left, rect.top);
+        this.context.lineTo(rect.right, rect.top);
+        this.context.lineTo(rect.right, rect.bottom);
+        this.context.lineTo(rect.left, rect.bottom);
+        this.context.lineTo(rect.left, rect.top);
+        if (!color) {
+            this.context.strokeStyle = BumbleColor.debugColor;
+        } else {
+            this.context.strokeStyle = color;
+        }
+        this.context.stroke();
     }
 }
 
@@ -213,14 +234,14 @@ class BumbleDebug {
     draw() {
         if (this.__showFramerate) {
             const boxSize = 38;
-            this.__bumble.context.save();
+            this.__bumble.context.setTransform(1, 0, 0, 1, 0, 0);
+            this.__bumble.context.globalAlpha = 1.0;
             this.__bumble.context.fillStyle = BumbleColor.fromRGBA(0, 0, 0, 1.0);
             this.__bumble.context.fillRect(0, this.__bumble.height - boxSize, boxSize, boxSize);
             this.__bumble.context.fillStyle = BumbleColor.fromRGB(255, 255, 0);
             this.__bumble.context.font = "15px Arial";
             this.__bumble.context.textAlign = "center";
             this.__bumble.context.fillText(this.__bumble.realFramerate.toString(), boxSize / 2.0, this.__bumble.height - boxSize / 2.0, boxSize - 2);
-            this.__bumble.context.restore();
         }
     }
 }
@@ -558,11 +579,10 @@ class BumbleImage {
         this.__transformation.scale.y = height / this.__transformation.height;
     }
 
-    draw() {
-        this.__transformation.push();
-        this.__transformation.apply();
+    draw(parentTransform = null, parentAlpha = 1.0) {
+        this.__transformation.apply(parentTransform);
+        this.__bumble.context.globalAlpha = parentAlpha * this.__opacity;
         this.__bumble.context.drawImage(this.__image, 0, 0);
-        this.__transformation.pop();
     }
 }
 
@@ -663,9 +683,9 @@ class BumbleShape {
         this.__transformation.scale = value;
     }
 
-    draw() {
-        this.__transformation.push();
-        this.__transformation.apply();
+    draw(parentTransform = null, parentAlpha = 1.0) {
+        this.__transformation.apply(parentTransform);
+        this.__bumble.context.globalAlpha = parentAlpha * this.__opacity;
         if (this.__fill) {
             this.__bumble.context.fillStyle = this.__color;
             this.__bumble.context.fill(this.__path);
@@ -683,7 +703,6 @@ class BumbleShape {
             this.__bumble.context.strokeStyle = BumbleColor.debugColor;
             this.__bumble.context.stroke();
         }
-        this.__transformation.pop();
     }
 }
 
@@ -932,8 +951,8 @@ class BumbleVector {
 
     multiplyMatrix(matrix) {
         return new BumbleVector(
-            this.__x * matrix.m11 + this.__y * matrix.m12,
-            this.__x * matrix.m21 + this.__y * matrix.m22
+            this.__x * matrix.m11 + this.__y * matrix.m12 + 1 * matrix.m13,
+            this.__x * matrix.m21 + this.__y * matrix.m22 + 1 * matrix.m23
         );
     }
 }
@@ -1083,22 +1102,22 @@ class BumbleMatrix {
 }
 
 class BumbleCollision {
-    static rectToRect(position1, width1, height1, position2, width2, height2) {
-        const halfWidth1 = width1 / 2.0;
-        const halfHeight1 = height1 / 2.0;
-        const halfWidth2 = width2 / 2.0;
-        const halfHeight2 = height2 / 2.0;
+    static rectToRect(rect1, rect2) {
+        const halfWidth1 = rect1.width / 2.0;
+        const halfHeight1 = rect1.height / 2.0;
+        const halfWidth2 = rect2.width / 2.0;
+        const halfHeight2 = rect2.height / 2.0;
 
-        let x1 = position1.x;
-        let x2 = position2.x;
+        let x1 = rect1.center.x;
+        let x2 = rect2.center.x;
         if (x1 > x2) {
             const t = x1;
             x1 = x2;
             x2 = t;
         }
 
-        let y1 = position1.y;
-        let y2 = position2.y;
+        let y1 = rect1.center.y;
+        let y2 = rect2.center.y;
         if (y1 > y2) {
             const t = y1;
             y1 = y2;
@@ -1113,46 +1132,46 @@ class BumbleCollision {
         return false;
     }
 
-    static pointToRect(position1, position2, width1, height1) {
-        const halfWidth1 = width1 / 2.0;
-        const halfHeight1 = height1 / 2.0;
+    static pointToRect(position, rect) {
+        const halfWidth = rect.width / 2.0;
+        const halfHeight = rect.height / 2.0;
 
-        let x1 = position1.x;
-        let x2 = position2.x;
+        let x1 = position.x;
+        let x2 = rect.center.x;
         if (x1 > x2) {
             const t = x1;
             x1 = x2;
             x2 = t;
         }
 
-        let y1 = position1.y;
-        let y2 = position2.y;
+        let y1 = position.y;
+        let y2 = rect.center.y;
         if (y1 > y2) {
             const t = y1;
             y1 = y2;
             y2 = t;
         }
 
-        if (x1 + halfWidth1 >= x2 &&
-            y1 + halfHeight1 >= y2) {
+        if (x1 + halfWidth >= x2 &&
+            y1 + halfHeight >= y2) {
             return true;
         }
 
         return false;
     }
 
-    static circleToCircle(position1, radius1, position2, radius2) {
-        const Radius0 = radius0 * radius0
-        const Radius1 = radius1 * radius1
-        if (position1.subtract(position2).lengthSquared() <= (Radius0 + Radius1)) {
+    static circleToCircle(circle1, circle2) {
+        const radius0 = circle1.radius * circle1.radius
+        const radius1 = circle2.radius * circle2.radius
+        if (circle1.center.subtract(circle2.center).lengthSquared() <= (radius0 + radius1)) {
             return true;
         }
         return false;
     }
 
-    static pointToCircle(position1, position2, radius2) {
-        const Radius0 = radius0 * radius0
-        if (position1.subtract(position2).lengthSquared() <= (Radius0)) {
+    static pointToCircle(position, circle) {
+        const radius = circle.radius * circle.radius
+        if (position.subtract(circle.center).lengthSquared() <= (radius)) {
             return true;
         }
         return false;
@@ -1174,37 +1193,31 @@ class BumbleTransformation {
     get rotation() { return this.__rotation; }
     set rotation(value) {
         this.__rotation = value;
-        this.__transformMatrix = null;
     }
 
     get position() { return this.__position; }
     set position(value) {
         this.__position = value;
-        this.__transformMatrix = null;
     }
 
     get scale() { return this.__scale; }
     set scale(value) {
         this.__scale = value;
-        this.__transformMatrix = null;
     }
 
     get anchor() { return this.__anchor; }
     set anchor(value) {
         this.__anchor = value;
-        this.__transformMatrix = null;
     }
 
     get width() { return this.__width; }
     set width(value) {
         this.__width = value;
-        this.__transformMatrix = null;
     }
 
     get height() { return this.__height; }
     set height(value) {
         this.__height = value;
-        this.__transformMatrix = null;
     }
 
     push() {
@@ -1215,24 +1228,78 @@ class BumbleTransformation {
         this.__bumble.context.restore();
     }
 
-    apply() {
-        const trans = this.getTransform();
-        this.__bumble.context.transform(
+    apply(parentTransform = null) {
+        const trans = this.getTransform(parentTransform);
+        this.__bumble.context.setTransform(
             trans.m11, trans.m21,
             trans.m12, trans.m22,
             trans.m13, trans.m23
         );
     }
 
-    getTransform() {
-        if (this.__transformMatrix === null) {
-            const rot = BumbleMatrix.rotate(this.__rotation);
-            const scl = BumbleMatrix.scale(this.__scale.x, this.__scale.y);
-            const pos = BumbleMatrix.translate(this.__position.x, this.__position.y);
-            const ctr = BumbleMatrix.translate(-this.__width * this.__anchor.x, -this.__height * this.__anchor.y);
-            
-            this.__transformMatrix = pos.multiply(rot).multiply(scl).multiply(ctr);
+    getTransform(parentTransform = null) {
+        const rot = BumbleMatrix.rotate(this.__rotation);
+        const scl = BumbleMatrix.scale(this.__scale.x, this.__scale.y);
+        const pos = BumbleMatrix.translate(this.__position.x, this.__position.y);
+        const ctr = BumbleMatrix.translate(-this.__width * this.__anchor.x, -this.__height * this.__anchor.y);
+        
+        this.__transformMatrix = pos.multiply(rot).multiply(scl).multiply(ctr);
+        if (parentTransform === null) {
+            return this.__transformMatrix;
+        } else {
+            return parentTransform.multiply(this.__transformMatrix);
         }
-        return this.__transformMatrix;
+    }
+}
+
+class BumbleRect {
+    constructor(left = 0, right = 0, top = 0, bottom = 0) {
+        this.__left = left;
+        this.__right = right;
+        this.__top = top;
+        this.__bottom = bottom;
+    }
+
+    get left() { return this.__left; }
+    set left(value) {
+        this.__left = value;
+    }
+
+    get right() { return this.__right; }
+    set right(value) {
+        this.__right = value;
+    }
+
+    get top() { return this.__top; }
+    set top(value) {
+        this.__top = value;
+    }
+
+    get bottom() { return this.__bottom; }
+    set bottom(value) {
+        this.__bottom = value;
+    }
+
+    get width() { return this.__right - this.__left; }
+
+    get height() { return this.__bottom - this.__top; }
+
+    get center() { return new BumbleVector(this.__right - this.__left, this.__bottom - this.__top); }
+}
+
+class BumbleCircle {
+    constructor(center = new BumbleVector(), radius = 0) {
+        this.__center = center;
+        this.__radius = radius;
+    }
+
+    get center() { return this.__center; }
+    set center(value) {
+        this.center = value;
+    }
+
+    get radius() { return this.__radius; }
+    set radius(value) {
+        this.__radius = value;
     }
 }
