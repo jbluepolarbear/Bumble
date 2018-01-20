@@ -81,8 +81,8 @@ bumble.runCoroutine(function *() {
         bumble.applyTransformation(shapeTransform.build());
         shape.draw();
         angle += 0.01;
-        image.rotation = angle;
-        shape.rotation = -angle;
+        imageTransform.rotation = angle;
+        shapeTransform.rotation = -angle;
         yield;
     }
 });
