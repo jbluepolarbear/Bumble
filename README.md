@@ -31,6 +31,9 @@ bumble.preloader.loadAll([
 bumble.runCoroutine(function *() {
     // load an image by url
     const image = bumble.getImage('bumble');
+    const imageTransform = new BumbleTransformation(image.width, image.height);
+    imageTransform.anchor = new BumbleVector(0.5, 0.5);
+    imageTransform.position = new BumbleVector(image.width / 2, image.height / 2);
 
     // create a shape
     const shape = bumble.getShape([
@@ -39,21 +42,22 @@ bumble.runCoroutine(function *() {
         new BumbleVector(0, 128),
         new BumbleVector(64, 0)
     ], BumbleColor.fromRGB(0, 0, 255));
+    const shapeTransform = new BumbleTransformation(shape.width, shape.height);
+    shapeTransform.anchor = shape.getAnchorToCenterPoint();
+    shapeTransform.position = new BumbleVector(shape.width / 2, shape.height / 2);
     shape.position = new BumbleVector(shape.width, shape.height);
-    shape.setAnchorToCenterPoint();
-
-    const audio = bumble.getAudio('laser');
 
     // coroutine to handle snaping the shape to the mouse on right/main click
     bumble.runCoroutine(function *() {
         while (true) {
             if (bumble.mouse.mouseState.buttonState[0]) {
-                shape.position = bumble.mouse.mouseState.position.copy();
+                shapeTransform.position = bumble.mouse.mouseState.position.copy();
             }
             yield;
         }
     });
-    
+
+    const audio = bumble.getAudio('laser');
     bumble.runCoroutine(function *() {
         while (true) {
             if (bumble.keys.isDown(BumbleKeyCodes.SPACE)) {
@@ -72,7 +76,9 @@ bumble.runCoroutine(function *() {
         // clear canvas screen
         bumble.clearScreen();
         
+        bumble.applyTransformation(imageTransform.build());
         image.draw();
+        bumble.applyTransformation(shapeTransform.build());
         shape.draw();
         angle += 0.01;
         image.rotation = angle;

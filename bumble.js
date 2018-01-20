@@ -151,6 +151,14 @@ class Bumble {
     getData(name) {
         return this.__preloader.getData(name);
     }
+    
+    applyTransformation(transformation) {
+        this.__context.setTransform(
+            transformation.m11, transformation.m21,
+            transformation.m12, transformation.m22,
+            transformation.m13, transformation.m23
+        );
+    }
 
     get loaderBackgroundColor() {
         return this.__loaderBackgroundColor;
@@ -487,7 +495,7 @@ class BumbleCoroutines {
             } else if (yielded.value instanceof Array) {
                 nextResult = [];
                 for (let item of yielded.value) {
-                    if (item instanceof Promise) {
+                    if (Promise.resolve(item) === item) {
                         let completed = false;
                         item.then((result) => {
                             completed = true;
@@ -541,47 +549,7 @@ class BumbleImage {
 
     get image() { return this.__image; }
 
-    get width() {
-        return this.__transformation.width;
-    }
-
-    get height() {
-        return this.__transformation.height;
-    }
-
-    get transformation() { return this.__transformation; }
-    set transformation(value) {
-        this.__transformation = value;
-    }
-
-    get rotation() { return this.__transformation.rotation; }
-    set rotation(value) {
-        this.__transformation.rotation = value;
-    }
-    
-    get position() { return this.__transformation.position; }
-    set position(value) {
-        this.__transformation.position = value;
-    }
-    
-    get anchor() { return this.__transformation.anchor; }
-    set anchor(value) {
-        this.__transformation.anchor = value;
-    }
-    
-    get scale() { return this.__transformation.scale; }
-    set scale(value) {
-        this.__transformation.scale = value;
-    }
-
-    setSize(width, height) {
-        this.__transformation.scale.x = width / this.__transformation.width;
-        this.__transformation.scale.y = height / this.__transformation.height;
-    }
-
-    draw(parentTransform = null, parentAlpha = 1.0) {
-        this.__transformation.apply(parentTransform);
-        this.__bumble.context.globalAlpha = parentAlpha * this.__opacity;
+    draw() {
         this.__bumble.context.drawImage(this.__image, 0, 0);
     }
 }
@@ -594,15 +562,10 @@ class BumbleShape {
         this.__fill = fill;
         this.__lineWidth = 1;
         this.__path = new Path2D();
-        this.__transformation = new BumbleTransformation(this.__bumble, 0, 0);
-        this.__transformation.position = new BumbleVector();
-        this.__transformation.rotation = 0.0;
-        this.__transformation.anchor = new BumbleVector(0.5, 0.5);
-        this.__transformation.scale = new BumbleVector(1.0, 1.0);
         this.__drawBoundingBox = false;
 
-        this.__transformation.width = this.__points[0].x;
-        this.__transformation.height = this.__points[0].y;
+        this.__width = this.__points[0].x;
+        this.__height = this.__points[0].y;
         this.__centerPoint = new BumbleVector(this.__points[0].x, this.__points[0].y);
         this.__path.moveTo(this.__points[0].x, this.__points[0].y);
         for (let i = 1; i < this.__points.length; ++i) {
@@ -610,11 +573,11 @@ class BumbleShape {
                 this.__centerPoint = this.__centerPoint.add(this.__points[i]);
             }
             this.__path.lineTo(this.__points[i].x, this.__points[i].y);
-            if (this.__points[i].x > this.__transformation.width) {
-                this.__transformation.width = this.__points[i].x;
+            if (this.__points[i].x > this.__width) {
+                this.__width = this.__points[i].x;
             }
-            if (this.__points[i].y > this.__transformation.height) {
-                this.__transformation.height = this.__points[i].y;
+            if (this.__points[i].y > this.__height) {
+                this.__height = this.__points[i].y;
             }
         }
         this.__centerPoint = this.__centerPoint.divideValue(this.__points.length - 1);
@@ -628,8 +591,8 @@ class BumbleShape {
         this.__drawBoundingBox = value;
     }
 
-    setAnchorToCenterPoint() {
-        this.__transformation.anchor = new BumbleVector(this.__centerPoint.x / this.__transformation.width, this.__centerPoint.y / this.__transformation.height);
+    getAnchorToCenterPoint() {
+        return new BumbleVector(this.__centerPoint.x / this.__width, this.__centerPoint.y / this.__height);
     }
 
     get centerPoint() {
@@ -651,41 +614,14 @@ class BumbleShape {
     }
 
     get width() {
-        return this.__transformation.width;
+        return this.__width;
     }
 
     get height() {
-        return this.__transformation.height;
+        return this.__height;
     }
 
-    get transformation() { return this.__transformation; }
-    set transformation(value) {
-        this.__transformation = value;
-    }
-
-    get rotation() { return this.__transformation.rotation; }
-    set rotation(value) {
-        this.__transformation.rotation = value;
-    }
-    
-    get position() { return this.__transformation.position; }
-    set position(value) {
-        this.__transformation.position = value;
-    }
-    
-    get anchor() { return this.__transformation.anchor; }
-    set anchor(value) {
-        this.__transformation.anchor = value;
-    }
-    
-    get scale() { return this.__transformation.scale; }
-    set scale(value) {
-        this.__transformation.scale = value;
-    }
-
-    draw(parentTransform = null, parentAlpha = 1.0) {
-        this.__transformation.apply(parentTransform);
-        this.__bumble.context.globalAlpha = parentAlpha * this.__opacity;
+    draw() {
         if (this.__fill) {
             this.__bumble.context.fillStyle = this.__color;
             this.__bumble.context.fill(this.__path);
@@ -696,9 +632,9 @@ class BumbleShape {
         if (this.__drawBoundingBox) {
             this.__bumble.context.beginPath();
             this.__bumble.context.moveTo(0, 0);
-            this.__bumble.context.lineTo(this.__transformation.width, 0);
-            this.__bumble.context.lineTo(this.__transformation.width, this.__transformation.height);
-            this.__bumble.context.lineTo(0, this.__transformation.height);
+            this.__bumble.context.lineTo(this.__width, 0);
+            this.__bumble.context.lineTo(this.__width, this.__height);
+            this.__bumble.context.lineTo(0, this.__height);
             this.__bumble.context.lineTo(0, 0);
             this.__bumble.context.strokeStyle = BumbleColor.debugColor;
             this.__bumble.context.stroke();
@@ -829,9 +765,7 @@ class BumbleUtility {
     static loadAudio(url) {
         return new Promise((resolve, reject) => {
             const audio = new Audio();
-            audio.addEventListener('canplaythrough', () => {
-                resolve(audio);
-            });
+            resolve(audio);
             audio.src = url;
         });
     }
@@ -1179,15 +1113,13 @@ class BumbleCollision {
 }
 
 class BumbleTransformation {
-    constructor(bumble, width = 0.0, height = 0.0) {
-        this.__bumble = bumble;
+    constructor(width = 0.0, height = 0.0) {
         this.__rotation = 0;
         this.__position = new BumbleVector(0.0, 0.0);
         this.__scale = new BumbleVector(1.0, 1.0);
         this.__anchor = new BumbleVector(0.5, 0.5);
         this.__width = width;
         this.__height = height;
-        this.__transformMatrix = null;
     }
 
     get rotation() { return this.__rotation; }
@@ -1220,35 +1152,13 @@ class BumbleTransformation {
         this.__height = value;
     }
 
-    push() {
-        this.__bumble.context.save();
-    }
-
-    pop() {
-        this.__bumble.context.restore();
-    }
-
-    apply(parentTransform = null) {
-        const trans = this.getTransform(parentTransform);
-        this.__bumble.context.setTransform(
-            trans.m11, trans.m21,
-            trans.m12, trans.m22,
-            trans.m13, trans.m23
-        );
-    }
-
-    getTransform(parentTransform = null) {
+    build() {
         const rot = BumbleMatrix.rotate(this.__rotation);
         const scl = BumbleMatrix.scale(this.__scale.x, this.__scale.y);
         const pos = BumbleMatrix.translate(this.__position.x, this.__position.y);
         const ctr = BumbleMatrix.translate(-this.__width * this.__anchor.x, -this.__height * this.__anchor.y);
         
-        this.__transformMatrix = pos.multiply(rot).multiply(scl).multiply(ctr);
-        if (parentTransform === null) {
-            return this.__transformMatrix;
-        } else {
-            return parentTransform.multiply(this.__transformMatrix);
-        }
+        return pos.multiply(rot).multiply(scl).multiply(ctr);
     }
 }
 
