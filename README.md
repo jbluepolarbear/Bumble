@@ -10,6 +10,7 @@ A small JavaScript game framwork with a focus on coroutines.
 
 ## Sample Usage
 ```javascript
+import { Bumble, BumbleUtility, BumbleVector, BumbleColor, BumbleKeyCodes, BumbleTransformation } from './bumble.js';
 // create bumble instance
 const bumble = new Bumble('sample', 720, 480, 'black', 60);
 // can get and set gamestate that is saved in localStorage
