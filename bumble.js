@@ -1187,94 +1187,71 @@ export class BumbleCollision {
         return collision;
     }
 
-    static pointToShape(position, shape, transformationMatrix) {
-        if (!transformationMatrix) {
-            transformationMatrix = BumbleMatrix.identity();
-        }
-        
-        const centerPoint = shape.centerPoint.multiplyMatrix(transformationMatrix);
-        if (!BumbleCollision.pointToCircle(position, new BumbleCircle(centerPoint, shape.radius))) {
+    static pointToPolygon(point, polygon) {
+        if (point.distance(polygon.center) > polygon.radius) {
             return false;
         }
-        const points = shape.points.slice(0, shape.points.length - 1).map(point => point.multiplyMatrix(transformationMatrix));
-        let closestPoint = points[0];
-        let closestDistance = position.distance(closestPoint);
-        let leftPoint = points[1];
-        let rightPoint = points[points.length - 1];
-        for (let i = 1; i < points.length; ++i) {
-            const newClosestDistance = position.distance(points[i])
-            if (newClosestDistance < closestDistance) {
-                closestDistance = newClosestDistance;
-                closestPoint = points[i];
-                leftPoint = points[(i + 1) % points.length];
-                rightPoint = points[i - 1];
+
+        let lastCross = Math.sign(BumbleCollision.sideOfVector(point, polygon.points[polygon.points.length - 1], polygon.points[0]));
+        if (lastCross === 0) {
+            return true;
+        }
+    
+        for (let i = 0; i < polygon.points.length - 1; ++i) {
+            const currentCross = BumbleCollision.sideOfVector(point, polygon.points[i], polygon.points[i + 1]);
+            if (currentCross === 0) {
+                return true;
+            }
+    
+            if (lastCross !== Math.sign(currentCross)) {
+                return false;
             }
         }
-
-        const leftDistance = position.distance(leftPoint);
-        const rightDistance = position.distance(rightPoint);
-
-        const sideC = BumbleCollision.sideOfVector(position, closestPoint, shape.centerPoint);
-        let A;
-        let B;
-        if (sideC > 0) {
-            A = rightPoint;
-            B = closestPoint;
-        } else if (sideC < 0) {
-            A = closestPoint;
-            B = leftPoint;
-        } else {
-            return position.distance(shape.centerPoint) <= closestPoint.distance(shape.centerPoint);
-        }
-
-        const sideA =  BumbleCollision.sideOfVector(position, B, A);
-        return sideA < 0;
+        return true;
     }
 
-    static circleToShape(circle, shape, transformationMatrix) {
-        if (!transformationMatrix) {
-            transformationMatrix = BumbleMatrix.identity();
-        }
-        
-        const centerPoint = shape.centerPoint.multiplyMatrix(transformationMatrix);
-        if (!BumbleCollision.circleToCircle(circle, new BumbleCircle(centerPoint, shape.radius))) {
+    static circleToPolygon(circle, polygon) {
+        if (!BumbleCollision.circleToCircle(circle, new BumbleCircle(polygon.center, polygon.radius))) {
             return false;
         }
-        const points = shape.points.slice(0, shape.points.length - 1).map(point => point.multiplyMatrix(transformationMatrix));
-        let closestPoint = points[0];
-        let closestDistance = circle.center.distance(closestPoint);
-        let leftPoint = points[1];
-        let rightPoint = points[points.length - 1];
-        for (let i = 1; i < points.length; ++i) {
-            const newClosestDistance = circle.center.distance(points[i])
-            if (newClosestDistance < closestDistance) {
-                closestDistance = newClosestDistance;
-                closestPoint = points[i];
-                leftPoint = points[(i + 1) % points.length];
-                rightPoint = points[i - 1];
+
+        let lastCross = Math.sign(BumbleCollision.sideOfVector(circle.center, polygon.points[polygon.points.length - 1], polygon.points[0]));
+        if (lastCross === 0) {
+            return true;
+        }
+    
+        for (let i = 0; i < polygon.points.length - 1; ++i) {
+            const currentCross = BumbleCollision.sideOfVector(circle.center, polygon.points[i], polygon.points[i + 1]);
+            if (currentCross === 0) {
+                return true;
+            }
+    
+            if (lastCross !== Math.sign(currentCross)) {
+                {
+                    const S = circle.center.subtract(polygon.points[i]);
+                    const U = polygon.points[i + 1].subtract(polygon.points[i]);
+                    const projectedVector = U.project(S);
+                    const projectedPoint = polygon.points[i].add(projectedVector);
+                    const distance = circle.center.distance(projectedPoint);
+                    if (distance - circle.radius < 0) {
+                        break;
+                    }
+                }
+                {
+                    const S = circle.center.subtract(polygon.points[polygon.points.length - 1]);
+                    const U = polygon.points[0].subtract(polygon.points[polygon.points.length - 1]);
+                    const projectedVector = U.project(S);
+                    const projectedPoint = polygon.points[polygon.points.length - 1].add(projectedVector);
+                    const distance = circle.center.distance(projectedPoint);
+                    if (distance - circle.radius < 0) {
+                        break;
+                    }
+                }
+                return false;
             }
         }
-
-        const leftDistance = circle.center.distance(leftPoint);
-        const rightDistance = circle.center.distance(rightPoint);
-
-        const sideC = BumbleCollision.sideOfVector(circle.center, closestPoint, shape.centerPoint);
-        let A;
-        let B;
-        if (sideC > 0) {
-            A = rightPoint;
-            B = closestPoint;
-        } else if (sideC < 0) {
-            A = closestPoint;
-            B = leftPoint;
-        } else {
-            return circle.center.distance(shape.centerPoint) <= closestPoint.distance(shape.centerPoint) + circle.radius;
-        }
-
-        const sideA =  BumbleCollision.sideOfVector(circle.center, B, A);
-        if (sideA < 0) {
-            return true;
-        } else {
+        return true;
+        {
             const S = circle.center.subtract(A);
             const U = B.subtract(A);
             const projectedVector = U.project(S);
@@ -1439,5 +1416,47 @@ export class BumbleCircle {
     get radius() { return this.__radius; }
     set radius(value) {
         this.__radius = value;
+    }
+}
+
+export class BumblePolygon {
+    constructor(points = []) {
+        this.__points = points;
+        this.__calculateCenter();
+        this.__calculateRadius();
+    }
+
+    get points() { return this.__points; }
+    set points(value) {
+        this.__points = value;
+        this.__calculateCenter();
+        this.__calculateRadius();
+    }
+
+    get center() {
+        return this.__center;
+    }
+
+    get radius() {
+        return this.__radius;
+    }
+
+    __calculateRadius() {
+        let radius = 0;
+        for (let point of this.points) {
+            const distance = point.distance(this.__center);
+            if (distance > radius) {
+                radius = distance;
+            }
+        }
+        this.__radius = radius;
+    }
+
+    __calculateCenter() {
+        let center = new BumbleVector();
+        for (let point of this.__points) {
+            center = center.add(point);
+        }
+        this.__center = center.divideValue(this.__points.length);
     }
 }
