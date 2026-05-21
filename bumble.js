@@ -105,10 +105,6 @@ export class Bumble {
         return this.__mouse;
     }
 
-    get deltaTime() {
-        return 1.0 / this.__framerate;
-    }
-
     get canvas() {
         return this.__canvas;
     }
@@ -146,7 +142,7 @@ export class Bumble {
     }
 
     getShape(points, color, fill = true) {
-        return new BumbleShape(this, points, color, fill = true);
+        return new BumbleShape(this, points, color, fill);
     }
 
     getData(name) {
@@ -383,8 +379,8 @@ export class BumblePreloader {
     }
 
     // [new BumbleResource('name', '/something.com/resourcename.ext', '(image) or (audio)')]
-    loadAll(resourecs) {
-        for (let resource of resourecs) {
+    loadAll(resources) {
+        for (let resource of resources) {
             this.load(resource);
         }
     }
@@ -483,43 +479,41 @@ export class BumbleCoroutines {
         const GeneratorFunction = function*(){}.constructor;
         const co = coroutineFunc();
         let yielded;
-        let nextResult;
+        const nextResult = [];
         do {
-            yielded = co.next(nextResult);
-            nextResult = null;
+            yielded = co.next(nextResult.shift());
             if (yielded.value instanceof GeneratorFunction) {
-                const subCo = coroutine(yielded.value);
+                const subCo = this.coroutine(yielded.value);
                 let subYielded;
                 do {
                     subYielded = subCo.next();
                     yield;
                 } while (!subYielded.done);
-                nextResult = subYielded.value;
+                nextResult.push(subYielded.value);
             } else if (Promise.resolve(yielded.value) === yielded.value) {
                 let completed = false;
                 yielded.value.then((result) => {
                     completed = true;
-                    nextResult = result;
-                })
+                    nextResult.push(result);
+                });
                 while (!completed) {
                     yield;
                 }
             } else if (yielded.value instanceof Array) {
-                nextResult = [];
                 for (let item of yielded.value) {
                     if (Promise.resolve(item) === item) {
                         let completed = false;
                         item.then((result) => {
                             completed = true;
                             nextResult.push(result);
-                        })
+                        });
                         while (!completed) {
                             yield;
                         }
                     }
-                } 
+                }
             } else {
-                nextResult = yielded.value;
+                nextResult.push(yielded.value);
                 yield;
             }
         } while (!yielded.done);
@@ -579,8 +573,8 @@ export class BumbleShape {
         this.__path = new Path2D();
         this.__drawBoundingBox = false;
 
-        this.__width = this.__points[0].x;
-        this.__height = this.__points[0].y;
+        this.__width = 0;
+        this.__height = 0;
         this.__centerPoint = new BumbleVector(this.__points[0].x, this.__points[0].y);
         this.__path.moveTo(this.__points[0].x, this.__points[0].y);
         for (let i = 1; i < this.__points.length; ++i) {
@@ -758,8 +752,8 @@ export class BumbleMouse {
     }
 
     __mouseDownEvent(event) {
-        this.__mouseState.position.x = event.layerX;
-        this.__mouseState.position.y = event.layerY;
+        this.__mouseState.position.x = event.offsetX;
+        this.__mouseState.position.y = event.offsetY;
         this.__mouseState.buttonState[event.button] = true;
         for (let listener of this.__mouseDownEventListeners) {
             listener(this.__mouseState);
@@ -767,8 +761,8 @@ export class BumbleMouse {
     }
 
     __mouseUpEvent(event) {
-        this.__mouseState.position.x = event.layerX;
-        this.__mouseState.position.y = event.layerY;
+        this.__mouseState.position.x = event.offsetX;
+        this.__mouseState.position.y = event.offsetY;
         this.__mouseState.buttonState[event.button] = false;
         for (let listener of this.__mouseUpEventListeners) {
             listener(this.__mouseState);
@@ -776,8 +770,8 @@ export class BumbleMouse {
     }
 
     __mouseMoveEvent(event) {
-        this.__mouseState.position.x = event.layerX;
-        this.__mouseState.position.y = event.layerY;
+        this.__mouseState.position.x = event.offsetX;
+        this.__mouseState.position.y = event.offsetY;
         for (let listener of this.__mouseMoveEventListeners) {
             listener(this.__mouseState);
         }
@@ -791,6 +785,9 @@ export class BumbleUtility {
             image.addEventListener('load', () => {
                 resolve(image);
             }, false);
+            image.addEventListener('error', (e) => {
+                reject(e);
+            }, false);
             image.src = url;
         });
     }
@@ -798,7 +795,12 @@ export class BumbleUtility {
     static loadAudio(url) {
         return new Promise((resolve, reject) => {
             const audio = new Audio();
-            resolve(audio);
+            audio.addEventListener('canplaythrough', () => {
+                resolve(audio);
+            }, false);
+            audio.addEventListener('error', (e) => {
+                reject(e);
+            }, false);
             audio.src = url;
         });
     }
@@ -809,9 +811,20 @@ export class BumbleUtility {
             request.overrideMimeType("application/json");
             request.open('GET', url, true);
             request.onreadystatechange = function () {
-                if (request.readyState == 4 && request.status == "200") {
-                    resolve(JSON.parse(request.responseText));
+                if (request.readyState == 4) {
+                    if (request.status == 200) {
+                        try {
+                            resolve(JSON.parse(request.responseText));
+                        } catch (e) {
+                            reject(e);
+                        }
+                    } else {
+                        reject(new Error('Request failed with status: ' + request.status));
+                    }
                 }
+            };
+            request.onerror = function() {
+                reject(new Error('Network error'));
             };
             request.send(null); 
         });
@@ -1050,9 +1063,9 @@ export class BumbleMatrix {
 
     transpose() {
         return new BumbleMatrix(
-            this.__11, this.__21, this.__31,
-            this.__12, this.__22, this.__32,
-            this.__13, this.__23, this.__33
+            this.__m11, this.__m21, this.__m31,
+            this.__m12, this.__m22, this.__m32,
+            this.__m13, this.__m23, this.__m33
         );
     }
 
@@ -1149,9 +1162,8 @@ export class BumbleCollision {
     }
 
     static circleToCircle(circle1, circle2) {
-        const radius0 = circle1.radius * circle1.radius
-        const radius1 = circle2.radius * circle2.radius
-        if (circle1.center.subtract(circle2.center).lengthSquared() <= (radius0 + radius1)) {
+        const radiusSum = circle1.radius + circle2.radius;
+        if (circle1.center.subtract(circle2.center).lengthSquared() <= (radiusSum * radiusSum)) {
             return true;
         }
         return false;
@@ -1251,14 +1263,6 @@ export class BumbleCollision {
             }
         }
         return true;
-        {
-            const S = circle.center.subtract(A);
-            const U = B.subtract(A);
-            const projectedVector = U.project(S);
-            const projectedPoint = A.add(projectedVector);
-            const distance = circle.center.distance(projectedPoint);
-            return distance - circle.radius < 0;
-        }
     }
 }
 
@@ -1278,7 +1282,7 @@ export class BumbleTransformation {
         if (value > pi2) {
             value = value - pi2;
         } else if (value < -pi2) {
-            value = -pi2 - value;
+            value = value + pi2;
         }
         this.__rotation = value;
     }
@@ -1410,7 +1414,7 @@ export class BumbleCircle {
 
     get center() { return this.__center; }
     set center(value) {
-        this.center = value;
+        this.__center = value;
     }
 
     get radius() { return this.__radius; }
